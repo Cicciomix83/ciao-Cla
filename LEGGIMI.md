@@ -12,3 +12,8 @@
 Comandi: "ciao Cla, compito ..." / "ciao Cla, fatto ..." / "ciao Cla, nota ..." (o qualsiasi frase)
 "ciao Cla, cosa devo fare" / "ciao Cla, report" / "ciao Cla, annulla".
 La parola di attivazione e l'ora del report si cambiano in Impostazioni.
+
+## Versione 1.1
+- Si mette in ascolto da sola quando apri l'app e continua anche in background / a schermo spento
+  (notifica fissa "Ciao Cla è in ascolto" con pulsante Ferma).
+- Firma fissa: da ora gli aggiornamenti si installano sopra la versione precedente.

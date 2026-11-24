@@ -237,6 +237,7 @@ if(NB){
   window.onNativeSpeech=t=>handle(t);
   window.onNativeError=micErr;
   window.onNativeStopped=()=>{listening=false;$('mic').classList.remove('on');idle()};
+  window.onNativeStarted=()=>{listening=true;$('warn').style.display='none';$('mic').classList.add('on');idle()};
   rec={start(){NB.start()},stop(){NB.stop()}};
 }
 else if(!SR){$('warn').style.display='block';$('warn').textContent='Questo browser non supporta il riconoscimento vocale. Apri la pagina con Google Chrome (computer o Android) o Edge. Intanto puoi scrivere i comandi a mano.'}
@@ -247,7 +248,7 @@ else{
   rec.onerror=e=>{if(e.error==='not-allowed'||e.error==='service-not-allowed'){listening=false;$('mic').classList.remove('on');$('warn').style.display='block';$('warn').textContent='Il microfono è bloccato. Consenti l\'accesso al microfono per questa pagina nelle impostazioni del browser.'}};
 }
 $('mic').onclick=()=>{
-  if(!rec)return;listening=!listening;$('mic').classList.toggle('on',listening);
+  if(!rec)return;if(NB){if(listening)NB.stop();else NB.start();return}listening=!listening;$('mic').classList.toggle('on',listening);
   if(listening){try{rec.start()}catch(e){}}else rec.stop();idle();
 };
 render();idle();
