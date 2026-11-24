@@ -73,6 +73,7 @@ details{margin-top:18px}summary{cursor:pointer;font-weight:600;min-height:32px}
     <div>
       <div id="status">Tocca il microfono per iniziare</div>
       <div id="heard"></div>
+      <div class="help" id="diag"></div>
       <div class="help">Di' <b id="ww">"ciao Cla"</b> e poi: <b>"compito …"</b> · <b>"fatto …"</b> (poi rispondi <b>"fatturare"</b> o <b>"assistenza"</b>) · <b>"nota …"</b> (o qualsiasi frase) · <b>"cosa devo fare"</b> · <b>"report"</b> · <b>"annulla"</b></div>
     </div>
   </div>
@@ -129,6 +130,24 @@ let data=store.get('cla.data',{items:[],reported:''});
 let history=[];
 const save=()=>{store.set('cla.data',data);render()};
 const wakes=()=>cfg.wake.split(',').map(norm).filter(Boolean);
+/* "Cla" non e' una parola: Google la scrive spesso in altri modi */
+const CLA_ALIAS=['cla','carla','clara','chiara','cara','clan','classe','cl','gla','kla','clan','claa','calla','klaus'];
+function lev(a,b){const d=Array.from({length:a.length+1},(_,i)=>[i]);for(let j=1;j<=b.length;j++)d[0][j]=j;for(let i=1;i<=a.length;i++)for(let j=1;j<=b.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));return d[a.length][b.length]}
+const sim=(a,b)=>a===b||(b.length>=4&&lev(a,b)<=1)||(b.length>=6&&lev(a,b)<=2);
+function wakeRest(c){
+  const ct=c.split(' ');
+  for(const w of wakes()){
+    const wt=w.split(' ');
+    const alts=wt.map(t=>t==='cla'?CLA_ALIAS:[t]);
+    for(let i=0;i+wt.length<=ct.length;i++){
+      if(wt.every((_,j)=>alts[j].some(x=>sim(ct[i+j],x))))return ct.slice(i+wt.length).join(' ');
+    }
+    for(let i=0;i<ct.length;i++){
+      if(wt.length>1&&(sim(ct[i],wt.join(''))||(wt[wt.length-1]==='cla'&&CLA_ALIAS.some(x=>ct[i]===wt.slice(0,-1).join('')+x))))return ct.slice(i+1).join(' ');
+    }
+  }
+  return null;
+}
 
 const NB=window.AndroidBridge;
 function speak(t){if(cfg.voice!=='1')return;if(NB){NB.speak(t);return}if(!window.speechSynthesis)return;const u=new SpeechSynthesisUtterance(t);u.lang='it-IT';speechSynthesis.cancel();speechSynthesis.speak(u)}
@@ -224,18 +243,23 @@ function idle(){$('status').textContent=listening?`In ascolto di "${wakes()[0]}"
 function handle(text,typed){
   const c=norm(text);$('heard').textContent='Ho sentito: "'+text.trim()+'"';
   if(typed){run(text);return}
-  if(pend&&Date.now()<pend.until&&!wakes().some(w=>(' '+c+' ').includes(' '+w+' '))){const k=clsOf(c);if(k){setCls(pend.id,k);return}}
-  for(const w of wakes()){const i=(' '+c+' ').indexOf(' '+w+' ');if(i>-1){
-    const rest=c.slice(i+w.length).trim();
+  const rest=wakeRest(c);
+  if(pend&&Date.now()<pend.until&&rest===null){const k=clsOf(c);if(k){setCls(pend.id,k);return}}
+  if(rest!==null){
     if(rest)run(rest);else{armedUntil=Date.now()+8000;$('status').textContent='Dimmi…';$('mic').classList.add('armed');speak('Dimmi')}
-    return}}
+    return}
   if(Date.now()<armedUntil){armedUntil=0;$('mic').classList.remove('armed');run(c)}
 }
 const micErr=()=>{listening=false;$('mic').classList.remove('on');$('warn').style.display='block';$('warn').textContent='Il microfono è bloccato. Consenti l\'accesso al microfono nelle impostazioni.';idle()};
 if(NB){
   $('copy').textContent='Condividi';$('dl').hidden=true;
-  window.onNativeSpeech=t=>handle(t);
-  window.onNativeError=micErr;
+  const ERR={1:'rete lenta',2:'nessuna rete',3:'errore audio',4:'errore del servizio',5:'errore interno',6:'silenzio',7:'non ho capito',8:'riconoscitore occupato',9:'permesso microfono mancante',11:'lingua non disponibile',12:'lingua non disponibile',13:'servizio non disponibile'};
+  let nOk=0;
+  window.onNativeError=k=>{if(k==='norec'){listening=false;$('mic').classList.remove('on');$('warn').style.display='block';$('warn').textContent='Sul telefono manca il riconoscimento vocale di Google. Installa o aggiorna l\'app "Google" dal Play Store e riapri Ciao Cla.';idle()}else micErr()};
+  window.onNativeStatus=code=>{if(code===6||code===7){$('diag').textContent='Microfono attivo ✓ ('+nOk+' frasi capite)';return}$('diag').textContent='Riconoscimento: '+(ERR[code]||'errore '+code)};
+  window.onNativeReady=()=>{$('diag').textContent='Microfono attivo ✓ ('+nOk+' frasi capite)'};
+  window.onNativePartial=t=>{$('heard').textContent='… '+t};
+  window.onNativeSpeech=t=>{nOk++;$('diag').textContent='Microfono attivo ✓ ('+nOk+' frasi capite)';handle(t)};
   window.onNativeStopped=()=>{listening=false;$('mic').classList.remove('on');idle()};
   window.onNativeStarted=()=>{listening=true;$('warn').style.display='none';$('mic').classList.add('on');idle()};
   rec={start(){NB.start()},stop(){NB.stop()}};

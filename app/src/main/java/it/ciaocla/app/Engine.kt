@@ -101,7 +101,7 @@ object Engine : TextToSpeech.OnInitListener {
         app = ctx.applicationContext
         if (listening) return
         if (!SpeechRecognizer.isRecognitionAvailable(app)) {
-            js("window.onNativeError && window.onNativeError()")
+            js("window.onNativeError && window.onNativeError('norec')")
             return
         }
         listening = true
@@ -131,19 +131,28 @@ object Engine : TextToSpeech.OnInitListener {
                 }
                 again()
             }
-            override fun onError(error: Int) { again() }
-            override fun onReadyForSpeech(params: Bundle?) {}
+            override fun onError(error: Int) {
+                js("window.onNativeStatus && window.onNativeStatus($error)")
+                val wait = if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_CLIENT) 1200L else 300L
+                if (listening) main.postDelayed({ listenOnce() }, wait)
+            }
+            override fun onReadyForSpeech(params: Bundle?) { js("window.onNativeReady && window.onNativeReady()") }
             override fun onBeginningOfSpeech() {}
             override fun onRmsChanged(rmsdB: Float) {}
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() {}
-            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onPartialResults(partialResults: Bundle?) {
+                val t = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                if (!t.isNullOrBlank()) js("window.onNativePartial && window.onNativePartial(" + JSONObject.quote(t) + ")")
+            }
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "it-IT")
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, app.packageName)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
         }
         r.startListening(intent)
