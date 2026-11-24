@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ciao Cla – appunti vocali</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: calmo, pratico, un taccuino che ascolta
+   IDEA: un block-notes con un "orecchio" acceso in cima
+   PICTURE: il pulsante microfono grande con l'anello che pulsa quando ascolta
+   COLOUR and TYPE: ghiaccio #dff1f7, inchiostro #06222e, rosa #ff2e7e; Space Grotesk + Inter
+   LAYOUT: microfono e stato in alto, poi compiti / appunti, report in fondo */
+:root{color-scheme:light dark;--bg:light-dark(#dff1f7,#06222e);--card:light-dark(#fff,#0c3242);--ink:light-dark(#06222e,#e6f4f9);--mute:light-dark(#4a6672,#9bbac6);--acc:#ff2e7e;--line:light-dark(#c4dde6,#1d4a5c)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif;overflow-x:clip}
+h1,h2{font-family:"Space Grotesk",sans-serif;margin:0;line-height:1.1}
+h1{font-size:clamp(30px,6vw,44px)}h2{font-size:20px;margin-bottom:10px}
+.wrap{max-width:900px;margin:auto;padding:clamp(20px,4vw,48px) max(4vw,16px)}
+.top{display:grid;grid-template-columns:auto minmax(0,1fr);gap:24px;align-items:center;margin:20px 0 28px}
+#mic{width:120px;height:120px;border-radius:50%;border:0;background:var(--ink);color:var(--bg);cursor:pointer;position:relative;display:grid;place-items:center}
+#mic svg{width:48px;height:48px}
+#mic.on{background:var(--acc);color:#fff}
+#mic.on::after{content:"";position:absolute;inset:-10px;border-radius:50%;border:3px solid var(--acc);animation:p 1.6s infinite}
+#mic.armed::after{border-color:#fff;inset:-4px;animation-duration:.6s}
+@keyframes p{from{opacity:1;transform:scale(.95)}to{opacity:0;transform:scale(1.25)}}
+@media(prefers-reduced-motion:reduce){#mic.on::after{animation:none}}
+#status{font-family:"Space Grotesk";font-size:22px;font-weight:700}
+#heard{color:var(--mute);font-size:15px;min-height:24px}
+.help{color:var(--mute);font-size:14px;margin-top:6px}
+.help b{color:var(--ink)}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+@media(max-width:640px){.cols,.top{grid-template-columns:minmax(0,1fr)}.top{justify-items:start}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+ul{list-style:none;margin:0;padding:0}
+li{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--line)}
+li:first-child{border-top:0}
+li .t{flex:1;overflow-wrap:anywhere}
+li time{color:var(--mute);font-size:13px;white-space:nowrap}
+li.done .t{text-decoration:line-through;color:var(--mute)}
+.ck{width:24px;height:24px;flex:none;border-radius:6px;border:2px solid var(--ink);background:none;cursor:pointer;padding:0;color:#fff}
+li.done .ck{background:var(--acc);border-color:var(--acc)}
+.x{background:none;border:0;color:var(--mute);cursor:pointer;font-size:18px;min-width:32px;min-height:32px}
+.empty{color:var(--mute);font-size:14px}
+.sub{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.mini{font:600 13px Inter,sans-serif;padding:6px 10px;min-height:34px;border-radius:999px;border:1px solid var(--acc);background:none;color:var(--ink);cursor:pointer}
+.tag{font:600 12px Inter,sans-serif;padding:3px 10px;border-radius:999px;cursor:pointer;border:0;min-height:26px}
+.tag.fattura{background:var(--acc);color:#fff}.tag.assistenza{background:var(--ink);color:var(--bg)}
+li.done .tag,li.done .mini{text-decoration:none}
+form{display:flex;gap:8px;margin:18px 0}
+input,select{font:16px Inter,sans-serif;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);flex:1;min-height:44px}
+button.b{font:600 15px Inter,sans-serif;padding:10px 16px;border-radius:10px;border:0;background:var(--ink);color:var(--bg);cursor:pointer;min-height:44px}
+button.b.alt{background:none;color:var(--ink);border:1px solid var(--ink)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+#report{margin-top:18px}
+#report pre{white-space:pre-wrap;font:15px/1.6 Inter,sans-serif;margin:0 0 12px}
+details{margin-top:18px}summary{cursor:pointer;font-weight:600;min-height:32px}
+.set{display:grid;gap:12px;margin-top:12px}.set label{display:grid;gap:4px;font-size:14px;color:var(--mute)}
+.warn{background:var(--acc);color:#fff;padding:12px 14px;border-radius:10px;margin-bottom:16px;display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="warn" id="warn"></div>
+  <h1>Ciao Cla</h1>
+  <div class="top">
+    <button id="mic" aria-label="Attiva o spegni l'ascolto">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+    </button>
+    <div>
+      <div id="status">Tocca il microfono per iniziare</div>
+      <div id="heard"></div>
+      <div class="help">Di' <b id="ww">"ciao Cla"</b> e poi: <b>"compito …"</b> · <b>"fatto …"</b> (poi rispondi <b>"fatturare"</b> o <b>"assistenza"</b>) · <b>"nota …"</b> (o qualsiasi frase) · <b>"cosa devo fare"</b> · <b>"report"</b> · <b>"annulla"</b></div>
+    </div>
+  </div>
+
+  <form id="typed">
+    <input id="cmd" placeholder='Oppure scrivi un comando, es. "compito chiamare il commercialista"' autocomplete="off">
+    <button class="b">Invia</button>
+  </form>
+
+  <div class="cols">
+    <div class="card"><h2>Compiti di oggi</h2><ul id="tasks"></ul></div>
+    <div class="card"><h2>Appunti di oggi</h2><ul id="notes"></ul></div>
+  </div>
+
+  <div class="card" id="report" hidden>
+    <h2 id="rtitle">Report della serata</h2>
+    <pre id="rtext"></pre>
+    <div class="row">
+      <button class="b" id="copy">Copia</button>
+      <button class="b alt" id="dl">Scarica .txt</button>
+      <button class="b alt" id="close">Chiudi</button>
+    </div>
+  </div>
+
+  <div class="row" style="margin-top:18px">
+    <button class="b" id="showReport">Report adesso</button>
+  </div>
+
+  <details>
+    <summary>Impostazioni</summary>
+    <div class="set">
+      <label>Parola di attivazione (puoi mettere più varianti separate da virgola)
+        <input id="sWake"></label>
+      <label>Ora del report serale
+        <input id="sTime" type="time"></label>
+      <label>Risposte a voce
+        <select id="sVoice"><option value="1">Sì</option><option value="0">No</option></select></label>
+      <div class="row"><button class="b" id="save">Salva</button><button class="b alt" id="wipe">Svuota la giornata</button></div>
+    </div>
+  </details>
+</div>
+
+<script>
+{
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm=s=>s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+const today=()=>new Date().toISOString().slice(0,10);
+const hhmm=t=>new Date(t).toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+
+let cfg=store.get('cla.cfg',{wake:'ciao cla, ciao clara, ciao claa',time:'21:00',voice:'1'});
+let data=store.get('cla.data',{items:[],reported:''});
+let history=[];
+const save=()=>{store.set('cla.data',data);render()};
+const wakes=()=>cfg.wake.split(',').map(norm).filter(Boolean);
+
+const NB=window.AndroidBridge;
+function speak(t){if(cfg.voice!=='1')return;if(NB){NB.speak(t);return}if(!window.speechSynthesis)return;const u=new SpeechSynthesisUtterance(t);u.lang='it-IT';speechSynthesis.cancel();speechSynthesis.speak(u)}
+function snap(){history.push(JSON.stringify(data.items));if(history.length>30)history.shift()}
+
+const STOP=new Set('il lo la i gli le un una uno di da a al alla allo ai agli alle del della dello dei degli delle e ed che per con su in il ho ha ok anche gia'.split(' '));
+const toks=s=>norm(s).split(' ').filter(w=>w.length>1&&!STOP.has(w));
+function bestTask(q){
+  const qt=toks(q);let best=null,score=0;
+  for(const it of data.items){if(it.type!=='task'||it.done)continue;
+    const tt=toks(it.text);let hit=0;
+    for(const w of qt)if(tt.some(x=>x===w||(w.length>3&&(x.startsWith(w.slice(0,4))||w.startsWith(x.slice(0,4))))))hit++;
+    const s=hit/Math.max(qt.length,1);if(s>score){score=s;best=it}}
+  return score>=0.34?best:null;
+}
+
+function run(raw){
+  const c=norm(raw);if(!c)return;
+  let m;
+  if(m=c.match(/^(?:ho )?(?:fatto|fatta|fatti|completato|completata|finito|finita) (.+)/)){
+    let k=null;const q=m[1].replace(/\s+(?:e\s+)?(?:va\s+)?(?:da\s+|in\s+)?(fatturare|fattura|assistenza)$/,(_,w)=>{k=/fattur/.test(w)?'fattura':'assistenza';return ''})||m[1];
+    let t=bestTask(q);snap();
+    if(t){t.done=true;t.doneAt=Date.now()}
+    else{t={id:Date.now(),type:'task',text:cap(q),at:Date.now(),done:true,doneAt:Date.now(),day:today()};data.items.push(t)}
+    if(k){t.cls=k;save();speak('Fatto: '+t.text+(k==='fattura'?', da fatturare':', in assistenza'));say('Fatto: '+t.text)}
+    else{save();ask(t)}
+    return}
+  if(pend&&clsOf(c)){setCls(pend.id,clsOf(c));return}
+  if(m=c.match(/^(?:aggiungi )?(?:compito|da fare|ricordami di|devo) (.+)/)){
+    snap();data.items.push({id:Date.now(),type:'task',text:cap(m[1]),at:Date.now(),done:false,day:today()});save();speak('Compito aggiunto');say('Nuovo compito: '+m[1]);return}
+  if(/^(report|resoconto|riepilogo)/.test(c)){showReport(true);return}
+  if(/^(annulla|cancella ultimo|elimina ultimo)/.test(c)){if(history.length){data.items=JSON.parse(history.pop());save();speak('Annullato')}else speak('Niente da annullare');return}
+  if(/^(cosa devo fare|leggi (i )?compiti|compiti)$/.test(c)){const o=todays().filter(i=>i.type==='task'&&!i.done);speak(o.length?'Ti restano '+o.length+' compiti: '+o.map(i=>i.text).join('; '):'Hai finito tutto, complimenti');return}
+  const txt=c.replace(/^(nota|appunta|appunto|scrivi|annota|prendi nota( che)?) /,'');
+  snap();data.items.push({id:Date.now(),type:'note',text:cap(txt),at:Date.now(),day:today()});save();speak('Annotato');say('Appunto salvato');
+}
+const cap=s=>s.charAt(0).toUpperCase()+s.slice(1);
+let pend=null;
+const clsOf=c=>{const f=/fattur/.test(c),a=/assisten/.test(c);return f&&!a?'fattura':a&&!f?'assistenza':null};
+function ask(t){pend={id:t.id,until:Date.now()+20000};speak('Fatto: '+t.text+'. Da fatturare o in assistenza?');$('status').textContent='Da fatturare o in assistenza?';clearTimeout(say.k)}
+function setCls(id,k){const i=data.items.find(x=>x.id==id);if(!i)return;snap();i.cls=k;pend=null;save();speak(k==='fattura'?'Segnato da fatturare':'Segnato in assistenza');say(k==='fattura'?'Da fatturare ✓':'In assistenza ✓')}
+const todays=()=>data.items.filter(i=>i.day===today()||(i.type==='task'&&!i.done));
+
+function render(){
+  const its=todays();
+  const tasks=its.filter(i=>i.type==='task').sort((a,b)=>a.done-b.done||a.at-b.at);
+  const notes=its.filter(i=>i.type==='note').sort((a,b)=>b.at-a.at);
+  $('tasks').innerHTML=tasks.length?tasks.map(i=>`<li class="${i.done?'done':''}"><button class="ck" data-ck="${i.id}" aria-label="Segna fatto">${i.done?'✓':''}</button><span class="t">${esc(i.text)}${i.done?`<span class="sub">${i.cls?`<button class="tag ${i.cls}" data-flip="${i.id}" aria-label="Cambia">${i.cls==='fattura'?'Da fatturare':'Assistenza'}</button>`:`<button class="mini" data-cls="${i.id}" data-k="fattura">Da fatturare</button><button class="mini" data-cls="${i.id}" data-k="assistenza">Assistenza</button>`}</span>`:''}</span><time>${i.done?'fatto '+hhmm(i.doneAt):''}</time><button class="x" data-rm="${i.id}" aria-label="Elimina">×</button></li>`).join(''):'<li class="empty">Nessun compito. Di\' "ciao Cla, compito …"</li>';
+  $('notes').innerHTML=notes.length?notes.map(i=>`<li><time>${hhmm(i.at)}</time><span class="t">${esc(i.text)}</span><button class="x" data-rm="${i.id}" aria-label="Elimina">×</button></li>`).join(''):'<li class="empty">Nessun appunto ancora.</li>';
+  $('ww').textContent='"'+(wakes()[0]||'ciao cla')+'"';
+}
+document.addEventListener('click',e=>{
+  const ck=e.target.closest('[data-ck]'),rm=e.target.closest('[data-rm]');
+  const cl=e.target.closest('[data-cls]'),fl=e.target.closest('[data-flip]');
+  if(cl){setCls(cl.dataset.cls,cl.dataset.k);return}
+  if(fl){const i=data.items.find(x=>x.id==fl.dataset.flip);setCls(i.id,i.cls==='fattura'?'assistenza':'fattura');return}
+  if(ck){snap();const i=data.items.find(x=>x.id==ck.dataset.ck);i.done=!i.done;i.doneAt=Date.now();save();if(i.done&&!i.cls)ask(i)}
+  if(rm){snap();data.items=data.items.filter(x=>x.id!=rm.dataset.rm);save()}
+});
+
+function reportText(){
+  const its=todays(),d=new Date().toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'});
+  const done=its.filter(i=>i.type==='task'&&i.done),open=its.filter(i=>i.type==='task'&&!i.done),notes=its.filter(i=>i.type==='note').sort((a,b)=>a.at-b.at);
+  const grp=(title,list)=>`${title} (${list.length})\n`+(list.map(i=>`  • ${i.text} (${hhmm(i.doneAt)})`).join('\n')||'  —');
+  const fat=done.filter(i=>i.cls==='fattura'),ass=done.filter(i=>i.cls==='assistenza'),nc=done.filter(i=>!i.cls);
+  let t=`REPORT DI ${d.toUpperCase()}\n\n`+grp('€ Da fatturare',fat)+'\n\n'+grp('🛠 In assistenza',ass);
+  if(nc.length)t+='\n\n'+grp('? Fatti, da classificare',nc);
+  t+=`\n\n○ Ancora da fare (${open.length})\n`+(open.map(i=>`  • ${i.text}`).join('\n')||'  —');
+  t+=`\n\n✎ Appunti (${notes.length})\n`+(notes.map(i=>`  ${hhmm(i.at)}  ${i.text}`).join('\n')||'  —');
+  return {t,done,open,notes};
+}
+function showReport(voice){
+  const r=reportText();$('rtext').textContent=r.t;$('report').hidden=false;$('report').scrollIntoView({behavior:'smooth'});
+  if(voice){const f=r.done.filter(i=>i.cls==='fattura').length,a=r.done.filter(i=>i.cls==='assistenza').length;speak(`Report della giornata. Hai fatto ${r.done.length} interventi: ${f} da fatturare e ${a} in assistenza. Te ne restano ${r.open.length}, e hai preso ${r.notes.length} appunti.`)}
+  data.reported=today();store.set('cla.data',data);
+}
+$('showReport').onclick=()=>showReport(false);
+$('close').onclick=()=>$('report').hidden=true;
+$('copy').onclick=async()=>{if(NB){NB.share($('rtext').textContent);return}try{await navigator.clipboard.writeText($('rtext').textContent);$('copy').textContent='Copiato ✓'}catch(e){$('copy').textContent='Copia non riuscita'}};
+$('dl').onclick=()=>{if(NB){NB.share($('rtext').textContent);return}const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([$('rtext').textContent],{type:'text/plain'}));a.download='report-'+today()+'.txt';a.click()};
+setInterval(()=>{const n=new Date(),[h,m]=cfg.time.split(':').map(Number);if(data.reported!==today()&&(n.getHours()>h||(n.getHours()===h&&n.getMinutes()>=m)))showReport(true)},30000);
+
+$('typed').onsubmit=e=>{e.preventDefault();const v=$('cmd').value;$('cmd').value='';handle(v,true)};
+$('sWake').value=cfg.wake;$('sTime').value=cfg.time;$('sVoice').value=cfg.voice;
+$('save').onclick=()=>{cfg={wake:$('sWake').value||'ciao cla',time:$('sTime').value||'21:00',voice:$('sVoice').value};store.set('cla.cfg',cfg);render();say('Impostazioni salvate')};
+$('wipe').onclick=()=>{snap();data.items=data.items.filter(i=>i.day!==today()&&!(i.type==='task'&&i.done));save();say('Giornata svuotata (puoi dire "annulla")')};
+
+/* ---------- ascolto ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null,listening=false,armedUntil=0;
+function say(t){$('status').textContent=t;clearTimeout(say.k);say.k=setTimeout(idle,4000)}
+function idle(){$('status').textContent=listening?`In ascolto di "${wakes()[0]}"…`:'Tocca il microfono per iniziare';$('mic').classList.toggle('armed',false)}
+function handle(text,typed){
+  const c=norm(text);$('heard').textContent='Ho sentito: "'+text.trim()+'"';
+  if(typed){run(text);return}
+  if(pend&&Date.now()<pend.until&&!wakes().some(w=>(' '+c+' ').includes(' '+w+' '))){const k=clsOf(c);if(k){setCls(pend.id,k);return}}
+  for(const w of wakes()){const i=(' '+c+' ').indexOf(' '+w+' ');if(i>-1){
+    const rest=c.slice(i+w.length).trim();
+    if(rest)run(rest);else{armedUntil=Date.now()+8000;$('status').textContent='Dimmi…';$('mic').classList.add('armed');speak('Dimmi')}
+    return}}
+  if(Date.now()<armedUntil){armedUntil=0;$('mic').classList.remove('armed');run(c)}
+}
+const micErr=()=>{listening=false;$('mic').classList.remove('on');$('warn').style.display='block';$('warn').textContent='Il microfono è bloccato. Consenti l\'accesso al microfono nelle impostazioni.';idle()};
+if(NB){
+  $('copy').textContent='Condividi';$('dl').hidden=true;
+  window.onNativeSpeech=t=>handle(t);
+  window.onNativeError=micErr;
+  window.onNativeStopped=()=>{listening=false;$('mic').classList.remove('on');idle()};
+  rec={start(){NB.start()},stop(){NB.stop()}};
+}
+else if(!SR){$('warn').style.display='block';$('warn').textContent='Questo browser non supporta il riconoscimento vocale. Apri la pagina con Google Chrome (computer o Android) o Edge. Intanto puoi scrivere i comandi a mano.'}
+else{
+  rec=new SR();rec.lang='it-IT';rec.continuous=true;rec.interimResults=false;
+  rec.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++)if(e.results[i].isFinal)handle(e.results[i][0].transcript)};
+  rec.onend=()=>{if(listening)setTimeout(()=>{try{rec.start()}catch(e){}},250)};
+  rec.onerror=e=>{if(e.error==='not-allowed'||e.error==='service-not-allowed'){listening=false;$('mic').classList.remove('on');$('warn').style.display='block';$('warn').textContent='Il microfono è bloccato. Consenti l\'accesso al microfono per questa pagina nelle impostazioni del browser.'}};
+}
+$('mic').onclick=()=>{
+  if(!rec)return;listening=!listening;$('mic').classList.toggle('on',listening);
+  if(listening){try{rec.start()}catch(e){}}else rec.stop();idle();
+};
+render();idle();
+}
+</script>
+</body>
+</html>
