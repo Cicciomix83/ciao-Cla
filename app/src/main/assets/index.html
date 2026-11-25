@@ -256,10 +256,11 @@ if(NB){
   const ERR={1:'rete lenta',2:'nessuna rete',3:'errore audio',4:'errore del servizio',5:'errore interno',6:'silenzio',7:'non ho capito',8:'riconoscitore occupato',9:'permesso microfono mancante',11:'lingua non disponibile',12:'lingua non disponibile',13:'servizio non disponibile'};
   let nOk=0;
   window.onNativeError=k=>{if(k==='norec'){listening=false;$('mic').classList.remove('on');$('warn').style.display='block';$('warn').textContent='Sul telefono manca il riconoscimento vocale di Google. Installa o aggiorna l\'app "Google" dal Play Store e riapri Ciao Cla.';idle()}else micErr()};
-  window.onNativeStatus=code=>{if(code===6||code===7){$('diag').textContent='Microfono attivo ✓ ('+nOk+' frasi capite)';return}$('diag').textContent='Riconoscimento: '+(ERR[code]||'errore '+code)};
-  window.onNativeReady=()=>{$('diag').textContent='Microfono attivo ✓ ('+nOk+' frasi capite)'};
+  window.onNativeStatus=code=>{if(code===6||code===7){$('diag').textContent='Microfono attivo ✓ ('+nOk+' frasi capite) · motore: '+eng;return}$('diag').textContent='Riconoscimento: '+(ERR[code]||'errore '+code)+' · motore: '+eng};
+  let eng='';window.onNativeEngine=n=>{eng=n};
+  window.onNativeReady=()=>{$('diag').textContent='Microfono attivo ✓ ('+nOk+' frasi capite) · motore: '+eng};
   window.onNativePartial=t=>{$('heard').textContent='… '+t};
-  window.onNativeSpeech=t=>{nOk++;$('diag').textContent='Microfono attivo ✓ ('+nOk+' frasi capite)';handle(t)};
+  window.onNativeSpeech=t=>{nOk++;$('diag').textContent='Microfono attivo ✓ ('+nOk+' frasi capite) · motore: '+eng;handle(t)};
   window.onNativeStopped=()=>{listening=false;$('mic').classList.remove('on');idle()};
   window.onNativeStarted=()=>{listening=true;$('warn').style.display='none';$('mic').classList.add('on');idle()};
   rec={start(){NB.start()},stop(){NB.stop()}};

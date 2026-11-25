@@ -1,6 +1,7 @@
 package it.ciaocla.app
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.MutableContextWrapper
@@ -9,6 +10,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.speech.RecognitionListener
+import android.speech.RecognitionService
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
@@ -27,6 +29,27 @@ object Engine : TextToSpeech.OnInitListener {
     private var tts: TextToSpeech? = null
     private val main = Handler(Looper.getMainLooper())
     var activity: MainActivity? = null
+
+    // Motori di riconoscimento: prima Google, poi gli altri installati (su Samsung il predefinito e' spesso Bixby)
+    private var engines: List<ComponentName?> = emptyList()
+    private var engineIdx = 0
+    private var badInARow = 0
+
+    private fun findEngines(): List<ComponentName?> {
+        val found = app.packageManager.queryIntentServices(Intent(RecognitionService.SERVICE_INTERFACE), 0)
+            .map { ComponentName(it.serviceInfo.packageName, it.serviceInfo.name) }
+        val pref = listOf("com.google.android.googlequicksearchbox", "com.google.android.tts", "com.google.android.as")
+        val sorted = found.sortedBy { c -> pref.indexOf(c.packageName).let { if (it < 0) 99 else it } }
+        return sorted + listOf<ComponentName?>(null) // null = predefinito del telefono
+    }
+
+    private fun engineLabel(c: ComponentName?): String = when {
+        c == null -> "predefinito del telefono"
+        c.packageName.startsWith("com.google.android.googlequicksearchbox") -> "Google"
+        c.packageName == "com.google.android.tts" -> "Servizi vocali Google"
+        c.packageName.contains("samsung") || c.packageName.contains("bixby") -> "Samsung"
+        else -> c.packageName
+    }
     var listening = false
         private set
 
@@ -105,6 +128,8 @@ object Engine : TextToSpeech.OnInitListener {
             return
         }
         listening = true
+        if (engines.isEmpty()) { engines = findEngines(); engineIdx = 0 }
+        badInARow = 0
         js("window.onNativeStarted && window.onNativeStarted()")
         listenOnce()
     }
@@ -121,11 +146,18 @@ object Engine : TextToSpeech.OnInitListener {
     private fun listenOnce() {
         if (!listening) return
         recognizer?.destroy()
-        val r = SpeechRecognizer.createSpeechRecognizer(app)
+        val comp = engines.getOrNull(engineIdx)
+        val r = try {
+            if (comp != null) SpeechRecognizer.createSpeechRecognizer(app, comp) else SpeechRecognizer.createSpeechRecognizer(app)
+        } catch (e: Exception) {
+            nextEngine(); main.postDelayed({ listenOnce() }, 500); return
+        }
+        js("window.onNativeEngine && window.onNativeEngine(" + JSONObject.quote(engineLabel(comp)) + ")")
         recognizer = r
         r.setRecognitionListener(object : RecognitionListener {
             override fun onResults(results: Bundle?) {
                 val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                badInARow = 0
                 if (!text.isNullOrBlank()) {
                     js("window.onNativeSpeech && window.onNativeSpeech(" + JSONObject.quote(text) + ")")
                 }
@@ -133,6 +165,8 @@ object Engine : TextToSpeech.OnInitListener {
             }
             override fun onError(error: Int) {
                 js("window.onNativeStatus && window.onNativeStatus($error)")
+                if (error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT || error == SpeechRecognizer.ERROR_NO_MATCH) badInARow = 0
+                else if (++badInARow >= 3) { nextEngine() }
                 val wait = if (error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || error == SpeechRecognizer.ERROR_CLIENT) 1200L else 300L
                 if (listening) main.postDelayed({ listenOnce() }, wait)
             }
@@ -156,6 +190,11 @@ object Engine : TextToSpeech.OnInitListener {
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L)
         }
         r.startListening(intent)
+    }
+
+    private fun nextEngine() {
+        badInARow = 0
+        if (engines.size > 1) engineIdx = (engineIdx + 1) % engines.size
     }
 
     private fun again() {
